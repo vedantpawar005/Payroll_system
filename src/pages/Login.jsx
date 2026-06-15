@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Form, Input, Button, Card, Typography, message, Space } from 'antd';
+import { Form, Input, Button, Card, Typography, message, Space, Checkbox } from 'antd';
 import { UserOutlined, LockOutlined, KeyOutlined, DashboardOutlined } from '@ant-design/icons';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -38,8 +38,8 @@ const Login = () => {
 
   const handleQuickFill = () => {
     form.setFieldsValue({
-      email: 'admin@payroll.com',
-      password: 'admin123'
+      email: 'payroll@gmail.com',
+      password: 'payroll@gmail.com'
     });
     message.info('Demo credentials prefilled! Click "Access Panel".');
   };
@@ -162,6 +162,12 @@ const Login = () => {
             />
           </Form.Item>
 
+          <Form.Item name="remember" valuePropName="checked" style={{ marginBottom: '20px' }}>
+            <Checkbox style={{ color: 'rgba(255, 255, 255, 0.7)', fontFamily: 'var(--font-body)' }}>
+              Remember my session
+            </Checkbox>
+          </Form.Item>
+
           <Form.Item style={{ marginBottom: '16px' }}>
             <Button
               type="primary"
@@ -204,7 +210,7 @@ const Login = () => {
             </Text>
           </Space>
           <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.5)', marginTop: '4px' }}>
-            admin@payroll.com / admin123
+            admin@payroll.com / admin@payroll.com
           </div>
         </div>
       </Card>

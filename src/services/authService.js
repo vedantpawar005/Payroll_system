@@ -4,7 +4,7 @@ const DEMO_USER_KEY = 'payroll_demo_user';
 const DEFAULT_DEMO_USER = {
   $id: 'demo-admin-1',
   name: 'Payroll Admin',
-  email: 'admin@payroll.com',
+  email: 'payroll@gmail.com',
   registration: new Date().toISOString(),
   status: true
 };
@@ -26,11 +26,11 @@ export const authService = {
   async login(email, password) {
     if (this.isDemoMode()) {
       // Simulate authentication with standard admin credentials
-      if (email === 'admin@payroll.com' && password === 'admin123') {
+      if (email === 'payroll@gmail.com' && password === 'payroll123') {
         localStorage.setItem(DEMO_USER_KEY, JSON.stringify(DEFAULT_DEMO_USER));
         return DEFAULT_DEMO_USER;
       }
-      throw new Error('Invalid email or password. Use: admin@payroll.com / admin123');
+      throw new Error('Invalid email or password. Use: payroll@gmail.com / payroll123');
     } else {
       // Create session in Appwrite
       await account.createEmailPasswordSession(email, password);

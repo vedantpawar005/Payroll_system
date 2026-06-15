@@ -1,18 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Statistic, Table, Tag, Typography, Button, Space, Skeleton, message } from 'antd';
+import {
+  Row,
+  Col,
+  Card,
+  Table,
+  Tag,
+  Typography,
+  Button,
+  Space,
+  Skeleton,
+  message,
+  Progress,
+  List,
+  Avatar,
+  Empty
+} from 'antd';
 import {
   UserOutlined,
   DollarCircleOutlined,
   ApartmentOutlined,
   ClockCircleOutlined,
   ArrowRightOutlined,
-  LineChartOutlined
+  LineChartOutlined,
+  CalendarOutlined,
+  ProfileOutlined
 } from '@ant-design/icons';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { employeeService } from '../services/employeeService';
 import { payrollService } from '../services/payrollService';
-import { formatCurrency, formatDate } from '../utils/formatters';
+import { formatCurrency } from '../utils/formatters';
 
 const { Title, Text } = Typography;
 
@@ -42,22 +59,28 @@ const Dashboard = () => {
     fetchData();
   }, []);
 
-  // Compute Statistics
+  // Compute Core Statistics
   const totalEmployeesCount = employees.length;
-  
   const uniqueDepartments = [...new Set(employees.map(emp => emp.department))].length;
 
-  // Let's find the current active payroll month. E.g. "2026-05" is the latest month present in dummyData.
+  const activeCount = employees.filter(e => e.status === 'Active').length;
+  const inactiveCount = employees.filter(e => e.status === 'Inactive').length;
+  const activeRatio = totalEmployeesCount > 0 ? Math.round((activeCount / totalEmployeesCount) * 100) : 0;
+
+  // Find the current active payroll month (latest month present in data)
   const allMonths = [...new Set(payrolls.map(p => p.month))].sort();
   const currentMonth = allMonths[allMonths.length - 1] || 'N/A';
 
   const currentMonthPayrolls = payrolls.filter(p => p.month === currentMonth);
   const monthlyPayrollSum = currentMonthPayrolls.reduce((sum, p) => sum + p.netSalary, 0);
-
   const pendingPaymentsCount = currentMonthPayrolls.filter(p => p.status === 'Pending').length;
 
+  // Distribution Ratios for current month
+  const totalCurrentPayments = currentMonthPayrolls.length;
+  const paidCurrentPayments = currentMonthPayrolls.filter(p => p.status === 'Paid').length;
+  const paidRatio = totalCurrentPayments > 0 ? Math.round((paidCurrentPayments / totalCurrentPayments) * 100) : 0;
+
   // Recharts Chart Formatting
-  // Format aggregated payroll details per month:
   const chartData = allMonths.map(month => {
     const monthPayrolls = payrolls.filter(p => p.month === month);
     const netSalaryTotal = monthPayrolls.reduce((sum, p) => sum + p.netSalary, 0);
@@ -65,8 +88,7 @@ const Dashboard = () => {
     const bonusTotal = monthPayrolls.reduce((sum, p) => sum + p.bonus, 0);
     const deductionsTotal = monthPayrolls.reduce((sum, p) => sum + p.deductions, 0);
     
-    // Convert YYYY-MM to readable month (e.g. "2026-05" -> "May 2026")
-    const date = new Date(month + '-02'); // Add buffer day to avoid timezone offsets
+    const date = new Date(month + '-02');
     const monthLabel = isNaN(date.getTime()) 
       ? month 
       : date.toLocaleString('default', { month: 'short', year: 'numeric' });
@@ -87,9 +109,14 @@ const Dashboard = () => {
       dataIndex: 'name',
       key: 'name',
       render: (text, record) => (
-        <Space direction="vertical" size={0}>
-          <Text style={{ fontWeight: 600 }}>{text}</Text>
-          <Text type="secondary" style={{ fontSize: '12px' }}>{record.email}</Text>
+        <Space size="middle">
+          <Avatar style={{ backgroundColor: 'var(--primary-light)', color: 'var(--primary-color)', fontWeight: 600 }}>
+            {text[0]}
+          </Avatar>
+          <Space direction="vertical" size={0}>
+            <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{text}</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{record.email}</span>
+          </Space>
         </Space>
       )
     },
@@ -97,26 +124,21 @@ const Dashboard = () => {
       title: 'Department',
       dataIndex: 'department',
       key: 'department',
-      render: (dept) => <Tag color="blue">{dept}</Tag>
-    },
-    {
-      title: 'Designation',
-      dataIndex: 'designation',
-      key: 'designation'
+      render: (dept) => <Tag color="indigo" style={{ borderRadius: '4px' }}>{dept}</Tag>
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
       render: (status) => (
-        <Tag color={status === 'Active' ? 'green' : 'red'}>
+        <Tag color={status === 'Active' ? 'green' : 'red'} style={{ borderRadius: '4px', fontWeight: 500 }}>
           {status}
         </Tag>
       )
     }
   ];
 
-  const recentEmployeesList = employees.slice(0, 5);
+  const recentEmployeesList = employees.slice(0, 4);
 
   const customTooltipFormatter = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -161,7 +183,8 @@ const Dashboard = () => {
             borderRadius: '8px',
             background: 'var(--primary-color)',
             borderColor: 'var(--primary-color)',
-            fontWeight: 500
+            fontWeight: 500,
+            boxShadow: '0 4px 10px rgba(79, 70, 229, 0.2)'
           }}
         >
           Distribute Salaries
@@ -259,7 +282,7 @@ const Dashboard = () => {
         </Col>
       </Row>
 
-      {/* Analytics Chart & Recent Employees */}
+      {/* Row 2: Analytics Chart (Col 16) & Distributions/Roster Widgets (Col 8) */}
       <Row gutter={[24, 24]}>
         {/* Recharts Area Chart */}
         <Col xs={24} xl={16}>
@@ -268,7 +291,8 @@ const Dashboard = () => {
             style={{
               borderRadius: '12px',
               border: '1px solid var(--border-color)',
-              boxShadow: '0 1px 3px 0 rgba(0,0,0,0.05)'
+              boxShadow: '0 1px 3px 0 rgba(0,0,0,0.05)',
+              height: '100%'
             }}
             title={
               <Space>
@@ -280,11 +304,11 @@ const Dashboard = () => {
             {loading ? (
               <Skeleton active paragraph={{ rows: 8 }} />
             ) : (
-              <div style={{ width: '100%', height: 350 }}>
+              <div style={{ width: '100%', height: 320 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
                     data={chartData}
-                    margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
+                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
                   >
                     <defs>
                       <linearGradient id="colorNetSalary" x1="0" y1="0" x2="0" y2="1">
@@ -321,22 +345,151 @@ const Dashboard = () => {
           </Card>
         </Col>
 
-        {/* Recent Employees Table */}
+        {/* Small Analytics Side Column */}
         <Col xs={24} xl={8}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: '100%', justifyContent: 'space-between' }}>
+            {/* Upcoming Salary Distribution Progress Widget */}
+            <Card
+              bordered={false}
+              style={{
+                borderRadius: '12px',
+                border: '1px solid var(--border-color)',
+                boxShadow: '0 1px 3px 0 rgba(0,0,0,0.05)',
+                flex: 1
+              }}
+              title={
+                <Space>
+                  <CalendarOutlined style={{ color: 'var(--success-color)' }} />
+                  <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: '15px' }}>Upcoming Distribution</span>
+                </Space>
+              }
+            >
+              {loading ? (
+                <Skeleton active paragraph={{ rows: 2 }} />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text type="secondary" style={{ fontSize: '13px' }}>Current Month Runs</Text>
+                    <Text style={{ fontWeight: 600, fontSize: '13px', color: 'var(--success-color)' }}>{paidRatio}% Disbursed</Text>
+                  </div>
+                  <Progress percent={paidRatio} strokeColor="var(--success-color)" showInfo={false} strokeWidth={8} style={{ margin: '4px 0' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                    <Text type="secondary">Status: <strong>{paidCurrentPayments}/{totalCurrentPayments}</strong> Paid</Text>
+                    <Text type="secondary">Pending: <strong>{pendingPaymentsCount}</strong> Runs</Text>
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            {/* Active Employees Ratio widget */}
+            <Card
+              bordered={false}
+              style={{
+                borderRadius: '12px',
+                border: '1px solid var(--border-color)',
+                boxShadow: '0 1px 3px 0 rgba(0,0,0,0.05)',
+                flex: 1
+              }}
+              title={
+                <Space>
+                  <ProfileOutlined style={{ color: 'var(--primary-color)' }} />
+                  <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: '15px' }}>Active Roster Summary</span>
+                </Space>
+              }
+            >
+              {loading ? (
+                <Skeleton active paragraph={{ rows: 2 }} />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text type="secondary" style={{ fontSize: '13px' }}>Operational Roster Ratio</Text>
+                    <Text style={{ fontWeight: 600, fontSize: '13px', color: 'var(--primary-color)' }}>{activeRatio}% Active</Text>
+                  </div>
+                  <Progress percent={activeRatio} strokeColor="var(--primary-color)" trailColor="#ef4444" showInfo={false} strokeWidth={8} style={{ margin: '4px 0' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                    <Text type="secondary">Active: <strong>{activeCount}</strong> Employees</Text>
+                    <Text type="secondary">Inactive: <strong>{inactiveCount}</strong> Staff</Text>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </div>
+        </Col>
+      </Row>
+
+      {/* Row 3: Recent Activity (Col 12) & Recent Hires (Col 12) */}
+      <Row gutter={[24, 24]}>
+        {/* Recent Payroll Activity Widget */}
+        <Col xs={24} lg={12}>
           <Card
             bordered={false}
             style={{
               borderRadius: '12px',
               border: '1px solid var(--border-color)',
               boxShadow: '0 1px 3px 0 rgba(0,0,0,0.05)',
-              height: '100%'
+              minHeight: '340px'
+            }}
+            title={
+              <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 600 }}>Recent Payroll Activity</span>
+            }
+            extra={
+              <Button type="link" onClick={() => navigate('/payroll')} style={{ paddingRight: 0 }}>
+                View Ledger
+              </Button>
+            }
+          >
+            {loading ? (
+              <Skeleton active paragraph={{ rows: 6 }} />
+            ) : (
+              <List
+                dataSource={payrolls.slice(0, 4)}
+                renderItem={(item) => (
+                  <List.Item style={{ padding: '12px 0', borderBottom: '1px solid #f1f5f9' }}>
+                    <List.Item.Meta
+                      avatar={
+                        <Avatar style={{ backgroundColor: 'var(--primary-light)', color: 'var(--primary-color)', fontWeight: 600 }}>
+                          {item.employeeName[0]}
+                        </Avatar>
+                      }
+                      title={
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{item.employeeName}</span>
+                          <span style={{ fontWeight: 700, color: '#111827' }}>{formatCurrency(item.netSalary)}</span>
+                        </div>
+                      }
+                      description={
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                          <span style={{ fontSize: '12px' }}>Ledger Month: {item.month}</span>
+                          <Tag color={item.status === 'Paid' ? 'green' : 'amber'} style={{ margin: 0, borderRadius: '4px', fontSize: '10px', fontWeight: 600 }}>
+                            {item.status.toUpperCase()}
+                          </Tag>
+                        </div>
+                      }
+                    />
+                  </List.Item>
+                )}
+                locale={{ emptyText: <Empty description="No payroll distributions recorded." image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+              />
+            )}
+          </Card>
+        </Col>
+
+        {/* Recent Hires Table Widget */}
+        <Col xs={24} lg={12}>
+          <Card
+            bordered={false}
+            style={{
+              borderRadius: '12px',
+              border: '1px solid var(--border-color)',
+              boxShadow: '0 1px 3px 0 rgba(0,0,0,0.05)',
+              minHeight: '340px'
             }}
             title={
               <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 600 }}>Recent Hires</span>
             }
             extra={
               <Button type="link" onClick={() => navigate('/employees')} style={{ paddingRight: 0 }}>
-                View All
+                View Roster
               </Button>
             }
           >
@@ -350,6 +503,7 @@ const Dashboard = () => {
                 pagination={false}
                 size="small"
                 style={{ fontFamily: 'var(--font-body)' }}
+                locale={{ emptyText: <Empty description="No employee profiles created." image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
               />
             )}
           </Card>

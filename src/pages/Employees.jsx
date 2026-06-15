@@ -14,7 +14,9 @@ import {
   Card,
   Row,
   Col,
-  Typography
+  Typography,
+  Empty,
+  Avatar
 } from 'antd';
 import {
   UserAddOutlined,
@@ -163,9 +165,14 @@ const Employees = () => {
       key: 'name',
       sorter: (a, b) => a.name.localeCompare(b.name),
       render: (text, record) => (
-        <Space direction="vertical" size={0}>
-          <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{text}</span>
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{record.email}</span>
+        <Space size="middle">
+          <Avatar style={{ backgroundColor: 'var(--primary-light)', color: 'var(--primary-color)', fontWeight: 600 }}>
+            {text[0]}
+          </Avatar>
+          <Space direction="vertical" size={0}>
+            <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{text}</span>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{record.email}</span>
+          </Space>
         </Space>
       )
     },
@@ -175,7 +182,7 @@ const Employees = () => {
       key: 'department',
       filters: DEPARTMENTS.map(d => ({ text: d, value: d })),
       onFilter: (value, record) => record.department === value,
-      render: (dept) => <Tag color="indigo">{dept}</Tag>
+      render: (dept) => <Tag color="indigo" style={{ borderRadius: '4px' }}>{dept}</Tag>
     },
     {
       title: 'Designation',
@@ -193,15 +200,17 @@ const Employees = () => {
       title: 'Joining Date',
       dataIndex: 'joiningDate',
       key: 'joiningDate',
+      sorter: (a, b) => new Date(a.joiningDate) - new Date(b.joiningDate),
       render: (val) => formatDate(val)
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
+      sorter: (a, b) => a.status.localeCompare(b.status),
       render: (status) => (
-        <Tag color={status === 'Active' ? 'green' : 'red'} style={{ borderRadius: '4px', fontWeight: 500 }}>
-          {status}
+        <Tag color={status === 'Active' ? 'green' : 'red'} style={{ borderRadius: '4px', fontWeight: 600 }}>
+          {status.toUpperCase()}
         </Tag>
       )
     },
@@ -353,6 +362,9 @@ const Employees = () => {
             style: { padding: '16px' }
           }}
           style={{ fontFamily: 'var(--font-body)' }}
+          locale={{
+            emptyText: <Empty description="No employees found matching the filters." image={Empty.PRESENTED_IMAGE_SIMPLE} />
+          }}
         />
       </Card>
 

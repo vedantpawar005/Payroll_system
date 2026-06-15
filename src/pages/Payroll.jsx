@@ -15,7 +15,8 @@ import {
   Col,
   Typography,
   Tooltip,
-  Popconfirm
+  Popconfirm,
+  Empty
 } from 'antd';
 import {
   PlusCircleOutlined,
@@ -24,7 +25,8 @@ import {
   DeleteOutlined,
   FilterOutlined,
   CalendarOutlined,
-  UserOutlined as EmployeeIcon
+  UserOutlined as EmployeeIcon,
+  ExportOutlined
 } from '@ant-design/icons';
 import { payrollService } from '../services/payrollService';
 import { employeeService } from '../services/employeeService';
@@ -42,6 +44,7 @@ const Payroll = () => {
   const availableMonths = getLastMonths(8); // last 8 months
   const [selectedMonth, setSelectedMonth] = useState(availableMonths[0]); // Default to latest month
   const [searchText, setSearchText] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -77,7 +80,7 @@ const Payroll = () => {
   const handleOpenModal = () => {
     form.resetFields();
     form.setFieldsValue({
-      month: selectedMonth,
+      month: selectedMonth || availableMonths[0],
       bonus: 0,
       deductions: 0,
       status: 'Pending'
@@ -155,6 +158,34 @@ const Payroll = () => {
     }
   };
 
+  const handleExportCSV = () => {
+    if (filteredPayrolls.length === 0) {
+      message.warning('No payroll records available to export.');
+      return;
+    }
+    const headers = ['Employee Name', 'Month', 'Base Salary', 'Bonus', 'Deductions', 'Net Salary', 'Status'];
+    const rows = filteredPayrolls.map(p => [
+      `"${p.employeeName}"`,
+      p.month,
+      p.salary,
+      p.bonus,
+      p.deductions,
+      p.netSalary,
+      p.status
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `payroll_ledger_${selectedMonth || 'all'}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    message.success('Payroll ledger exported successfully as CSV.');
+  };
+
   // Only list Active employees in selection modal
   const activeEmployees = employees.filter(emp => emp.status === 'Active');
 
@@ -162,7 +193,8 @@ const Payroll = () => {
   const filteredPayrolls = payrolls.filter(p => {
     const matchesMonth = !selectedMonth || p.month === selectedMonth;
     const matchesSearch = p.employeeName.toLowerCase().includes(searchText.toLowerCase());
-    return matchesMonth && matchesSearch;
+    const matchesStatus = statusFilter === 'All' || p.status === statusFilter;
+    return matchesMonth && matchesSearch && matchesStatus;
   });
 
   const columns = [
@@ -196,13 +228,13 @@ const Payroll = () => {
       title: 'Bonus Allocation',
       dataIndex: 'bonus',
       key: 'bonus',
-      render: (val) => <span style={{ color: 'var(--success-color)', fontWeight: 500 }}>+ {formatCurrency(val)}</span>
+      render: (val) => <span style={{ color: 'var(--success-color)', fontWeight: 600 }}>+ {formatCurrency(val)}</span>
     },
     {
       title: 'Deductions (Taxes/Fees)',
       dataIndex: 'deductions',
       key: 'deductions',
-      render: (val) => <span style={{ color: 'var(--danger-color)', fontWeight: 500 }}>- {formatCurrency(val)}</span>
+      render: (val) => <span style={{ color: 'var(--danger-color)', fontWeight: 600 }}>- {formatCurrency(val)}</span>
     },
     {
       title: 'Net Salary',
@@ -215,6 +247,7 @@ const Payroll = () => {
       title: 'Distribution Status',
       dataIndex: 'status',
       key: 'status',
+      sorter: (a, b) => a.status.localeCompare(b.status),
       render: (status) => (
         <Tag color={status === 'Paid' ? 'green' : 'amber'} style={{ borderRadius: '4px', fontWeight: 600 }}>
           {status.toUpperCase()}
@@ -295,20 +328,34 @@ const Payroll = () => {
             Process monthly payroll distributions, calculate net salary payouts, track payment statuses, and compile auditing reports.
           </Text>
         </div>
-        <Button
-          type="primary"
-          icon={<PlusCircleOutlined />}
-          onClick={handleOpenModal}
-          style={{
-            height: '40px',
-            borderRadius: '8px',
-            background: 'var(--primary-color)',
-            borderColor: 'var(--primary-color)',
-            fontWeight: 500
-          }}
-        >
-          Generate Payroll
-        </Button>
+        <Space size="middle">
+          <Button
+            icon={<ExportOutlined />}
+            onClick={handleExportCSV}
+            style={{
+              height: '40px',
+              borderRadius: '8px',
+              fontWeight: 500
+            }}
+          >
+            Export Ledger
+          </Button>
+          <Button
+            type="primary"
+            icon={<PlusCircleOutlined />}
+            onClick={handleOpenModal}
+            style={{
+              height: '40px',
+              borderRadius: '8px',
+              background: 'var(--primary-color)',
+              borderColor: 'var(--primary-color)',
+              fontWeight: 500,
+              boxShadow: '0 4px 10px rgba(79, 70, 229, 0.2)'
+            }}
+          >
+            Generate Payroll
+          </Button>
+        </Space>
       </div>
 
       {/* Filters Card */}
@@ -322,33 +369,49 @@ const Payroll = () => {
         bodyStyle={{ padding: '20px' }}
       >
         <Row gutter={[16, 16]} align="middle">
-          {/* Month Filter Picker */}
-          <Col xs={24} sm={10} md={8}>
-            <Space style={{ width: '100%' }}>
-              <CalendarOutlined style={{ color: 'var(--text-muted)' }} />
-              <Select
-                value={selectedMonth}
-                onChange={(val) => setSelectedMonth(val)}
-                style={{ width: '220px' }}
-                dropdownStyle={{ fontFamily: 'var(--font-body)' }}
-              >
-                <Option value="">All Historical Ledgers</Option>
-                {availableMonths.map((m) => {
-                  const date = new Date(m + '-02');
-                  const label = isNaN(date.getTime()) ? m : date.toLocaleString('default', { month: 'long', year: 'numeric' });
-                  return <Option key={m} value={m}>{label}</Option>;
-                })}
-              </Select>
+          {/* Month & Status Filter Picker */}
+          <Col xs={24} md={12}>
+            <Space wrap size="middle">
+              <Space>
+                <CalendarOutlined style={{ color: 'var(--text-muted)' }} />
+                <Select
+                  value={selectedMonth}
+                  onChange={(val) => setSelectedMonth(val)}
+                  style={{ width: '200px' }}
+                  dropdownStyle={{ fontFamily: 'var(--font-body)' }}
+                >
+                  <Option value="">All Historical Ledgers</Option>
+                  {availableMonths.map((m) => {
+                    const date = new Date(m + '-02');
+                    const label = isNaN(date.getTime()) ? m : date.toLocaleString('default', { month: 'long', year: 'numeric' });
+                    return <Option key={m} value={m}>{label}</Option>;
+                  })}
+                </Select>
+              </Space>
+
+              <Space>
+                <FilterOutlined style={{ color: 'var(--text-muted)' }} />
+                <Select
+                  value={statusFilter}
+                  onChange={(val) => setStatusFilter(val)}
+                  style={{ width: '150px' }}
+                  dropdownStyle={{ fontFamily: 'var(--font-body)' }}
+                >
+                  <Option value="All">All Statuses</Option>
+                  <Option value="Paid">Paid Only</Option>
+                  <Option value="Pending">Pending Only</Option>
+                </Select>
+              </Space>
             </Space>
           </Col>
 
           {/* Employee name search */}
-          <Col xs={24} sm={14} md={16}>
+          <Col xs={24} md={12}>
             <Input
               placeholder="Search payroll records by employee name..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              style={{ borderRadius: '8px', maxWidth: '380px', float: 'right' }}
+              style={{ borderRadius: '8px', maxWidth: '340px', float: 'right' }}
               allowClear
             />
           </Col>
@@ -376,6 +439,7 @@ const Payroll = () => {
             style: { padding: '16px' }
           }}
           style={{ fontFamily: 'var(--font-body)' }}
+          locale={{ emptyText: <Empty description="No payroll records found matching the filters." image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
         />
       </Card>
 
